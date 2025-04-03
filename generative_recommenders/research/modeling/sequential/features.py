@@ -43,6 +43,17 @@ def movielens_seq_features_from_row(
     target_ids = row["target_ids"].to(device).unsqueeze(1)  # [B, 1]
     target_ratings = row["target_ratings"].to(device).unsqueeze(1)
     target_timestamps = row["target_timestamps"].to(device).unsqueeze(1)
+
+    # Retrieve historical text embeddings (if available)
+    historical_text_embeddings = (
+        row["historical_text_embeddings"].to(device) if "historical_text_embeddings" in row else None
+    )  # [B, N, D_text]
+
+    # Retrieve target text embeddings (if available)
+    target_text_embeddings = (
+        row["target_text_embeddings"].to(device) if "target_text_embeddings" in row else None
+    )  # [B, 1, D_text]
+    
     if max_output_length > 0:
         B = historical_lengths.size(0)
         historical_ids = torch.cat(
@@ -81,7 +92,12 @@ def movielens_seq_features_from_row(
             index=historical_lengths.view(-1, 1),
             src=target_timestamps.view(-1, 1),
         )
-        # print(f"historical_ids.size()={historical_ids.size()}, historical_timestamps.size()={historical_timestamps.size()}")
+
+        if historical_text_embeddings is not None:
+            D_text = historical_text_embeddings.size(-1)
+            padding_text_embeddings = torch.zeros((B, max_output_length, D_text), dtype=torch.float32, device=device)
+            historical_text_embeddings = torch.cat([historical_text_embeddings, padding_text_embeddings], dim=1)
+
     features = SequentialFeatures(
         past_lengths=historical_lengths,
         past_ids=historical_ids,
@@ -89,6 +105,7 @@ def movielens_seq_features_from_row(
         past_payloads={
             "timestamps": historical_timestamps,
             "ratings": historical_ratings,
+            "text_embeddings": historical_text_embeddings if historical_text_embeddings is not None else torch.zeros_like(historical_ids, dtype=torch.float32),
         },
     )
     return features, target_ids, target_ratings

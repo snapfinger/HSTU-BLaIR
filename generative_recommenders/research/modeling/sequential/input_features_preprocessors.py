@@ -258,3 +258,68 @@ class CombinedItemAndRatingInputFeaturesPreprocessor(InputFeaturesPreprocessorMo
         )  # (B, N * 2, 1,)
         user_embeddings *= valid_mask
         return past_lengths * 2, user_embeddings, valid_mask
+
+
+class LearnablePositionalEmbeddingWithTextPreprocessor(
+    InputFeaturesPreprocessorModule
+):
+    """
+    Extends LearnablePositionalEmbeddingInputFeaturesPreprocessor by incorporating
+    item textual embeddings into the input feature processing.
+    """
+
+    def __init__(
+        self,
+        max_sequence_len: int,
+        embedding_dim: int,
+        dropout_rate: float,
+    ) -> None:
+        super().__init__()
+
+        self._embedding_dim: int = embedding_dim
+        self._pos_emb: torch.nn.Embedding = torch.nn.Embedding(
+            max_sequence_len,
+            self._embedding_dim,
+        )
+        self._dropout_rate: float = dropout_rate
+        self._emb_dropout = torch.nn.Dropout(p=dropout_rate)
+        self.reset_state()
+
+    def debug_str(self) -> str:
+        return f"posi_text_d{self._dropout_rate}"
+
+    def reset_state(self) -> None:
+        truncated_normal(
+            self._pos_emb.weight.data,
+            mean=0.0,
+            std=math.sqrt(1.0 / self._embedding_dim),
+        )
+
+    def forward(
+        self,
+        past_lengths: torch.Tensor,
+        past_ids: torch.Tensor,
+        past_embeddings: torch.Tensor,
+        past_payloads: Dict[str, torch.Tensor],
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        B, N = past_ids.size()
+        D = past_embeddings.size(-1)
+
+        # Retrieve textual embeddings from dataset
+        if "item_text_embeddings" in past_payloads:
+            text_embeddings = past_payloads["item_text_embeddings"][past_ids]
+        else:
+            text_embeddings = torch.zeros_like(past_embeddings)  # Fallback if no text embeddings
+
+        # Combine item ID embeddings and text embeddings
+        combined_embeddings = (past_embeddings + text_embeddings) * (self._embedding_dim**0.5)
+
+        # Apply learnable positional encoding
+        user_embeddings = combined_embeddings + self._pos_emb(
+            torch.arange(N, device=past_ids.device).unsqueeze(0).repeat(B, 1)
+        )
+        user_embeddings = self._emb_dropout(user_embeddings)
+
+        valid_mask = (past_ids != 0).unsqueeze(-1).float()  # [B, N, 1]
+        user_embeddings *= valid_mask
+        return past_lengths, user_embeddings, valid_mask

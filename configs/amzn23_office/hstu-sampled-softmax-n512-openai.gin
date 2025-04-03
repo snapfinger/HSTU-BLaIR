@@ -1,0 +1,46 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+
+train_fn.dataset_name = "amzn23_office"
+train_fn.max_sequence_length = 50
+train_fn.local_batch_size = 128
+train_fn.eval_batch_size = 128
+
+train_fn.main_module = "HSTU"
+train_fn.embedding_module_type = "local_and_text"
+train_fn.feat_prep = "LearnablePositionalEmbeddingWithTextPreprocessor"
+train_fn.sampling_strategy = "local_with_text"
+train_fn.text_embedding_model = "openai"
+
+train_fn.dropout_rate = 0.5
+train_fn.user_embedding_norm = "l2_norm"
+train_fn.item_embedding_dim = 64
+
+hstu_encoder.num_blocks = 4
+hstu_encoder.num_heads = 4
+hstu_encoder.dv = 16
+hstu_encoder.dqk = 16
+hstu_encoder.linear_dropout_rate = 0.5
+
+train_fn.eval_interval = 4000
+train_fn.num_epochs = 101
+train_fn.learning_rate = 1e-3
+train_fn.weight_decay = 0
+train_fn.num_warmup_steps = 0
+
+train_fn.interaction_module_type = "DotProduct"
+train_fn.top_k_method = "MIPSBruteForceTopK"
+
+train_fn.loss_module = "SampledSoftmaxLoss"
+train_fn.num_negatives = 512
+
+
+train_fn.temperature = 0.05
+train_fn.item_l2_norm = True
+train_fn.l2_norm_eps = 1e-6
+
+train_fn.enable_tf32 = True
+train_fn.full_eval_every_n = 5
+train_fn.partial_eval_num_iters = 64
+
+create_data_loader.prefetch_factor = 1024
+create_data_loader.num_workers = 8

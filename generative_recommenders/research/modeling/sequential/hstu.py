@@ -29,6 +29,7 @@ import torch.nn.functional as F
 
 from generative_recommenders.research.modeling.sequential.embedding_modules import (
     EmbeddingModule,
+    ItemEmbeddingWithText,
 )
 from generative_recommenders.research.modeling.sequential.input_features_preprocessors import (
     InputFeaturesPreprocessorModule,
@@ -672,7 +673,7 @@ class HSTU(SequentialEncoderWithLearnedSimilarityModule):
         self,
         past_lengths: torch.Tensor,
         past_ids: torch.Tensor,
-        past_embeddings: torch.Tensor,
+        past_embeddings: Optional[torch.Tensor],
         past_payloads: Dict[str, torch.Tensor],
         delta_x_offsets: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
         cache: Optional[List[HSTUCacheState]] = None,
@@ -684,6 +685,10 @@ class HSTU(SequentialEncoderWithLearnedSimilarityModule):
         device = past_lengths.device
         float_dtype = past_embeddings.dtype
         B, N, _ = past_embeddings.size()
+
+        # If not passed, compute from embedding module (could be item-only or item+text)
+        if past_embeddings is None:
+            past_embeddings = self._embedding_module.get_item_embeddings(past_ids)
 
         past_lengths, user_embeddings, _ = self._input_features_preproc(
             past_lengths=past_lengths,

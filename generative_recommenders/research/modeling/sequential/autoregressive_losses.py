@@ -121,6 +121,84 @@ class LocalNegativesSampler(NegativesSampler):
         return sampled_ids, self.normalize_embeddings(self._item_emb(sampled_ids))
 
 
+class LocalTextNegativesSampler(NegativesSampler):
+
+    def __init__(
+        self,
+        num_items: int,
+        item_emb: torch.nn.Embedding,
+        text_emb: torch.Tensor,
+        text_projection: torch.nn.Linear,
+        all_item_ids: List[int],
+        l2_norm: bool,
+        l2_norm_eps: float,
+    ) -> None:
+        super().__init__(l2_norm=l2_norm, l2_norm_eps=l2_norm_eps)
+
+        self._num_items: int = len(all_item_ids)
+        self._item_emb: torch.nn.Embedding = item_emb
+        self._text_emb: torch.Tensor = text_emb  # (num_items, text_embedding_dim)
+        self._text_projection: torch.nn.Linear = text_projection
+
+        device = item_emb.weight.device
+        self._text_emb = self._text_emb.to(device)
+        self._text_projection = self._text_projection.to(device)
+
+        self.register_buffer("_all_item_ids", torch.tensor(all_item_ids, device=device))
+
+    def debug_str(self) -> str:
+        sampling_debug_str = (
+            f"local_text{f'-l2-eps{self._l2_norm_eps}' if self._l2_norm else ''}"
+        )
+        return sampling_debug_str
+
+    def get_item_embeddings(self, item_ids: torch.Tensor) -> torch.Tensor:
+        """
+        Retrieves combined item embeddings (learned + text-based).
+
+        Args:
+            item_ids (torch.Tensor): Tensor of item IDs.
+
+        Returns:
+            torch.Tensor: Combined item embeddings.
+        """
+        item_embeds = self._item_emb(item_ids)  # Learned embeddings
+        text_embeds = self._text_emb[item_ids]  # Precomputed textual embeddings
+        projected_text_embeds = self._text_projection(text_embeds)  # Projected text embeddings
+        
+        return item_embeds + projected_text_embeds  # Fusion of both embeddings
+
+    def forward(
+        self,
+        positive_ids: torch.Tensor,
+        num_to_sample: int,
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        Samples negative examples based on both item embeddings and text embeddings.
+
+        Args:
+            positive_ids (torch.Tensor): Tensor of positive item IDs.
+            num_to_sample (int): Number of negative samples to generate.
+
+        Returns:
+            Tuple[torch.Tensor, torch.Tensor]: Sampled negative item IDs and their embeddings.
+        """
+        output_shape = positive_ids.size() + (num_to_sample,)
+        sampled_offsets = torch.randint(
+            low=0,
+            high=self._num_items,
+            size=output_shape,
+            dtype=positive_ids.dtype,
+            device=positive_ids.device,
+        )
+        sampled_ids = self._all_item_ids[sampled_offsets.view(-1)].reshape(output_shape)
+
+        # Fetch combined embeddings
+        sampled_embeddings = self.get_item_embeddings(sampled_ids)
+
+        return sampled_ids, self.normalize_embeddings(sampled_embeddings)
+    
+    
 class InBatchNegativesSampler(NegativesSampler):
     def __init__(
         self,

@@ -35,6 +35,7 @@ class DatasetV2(torch.utils.data.Dataset):
         shift_id_by: int = 0,
         chronological: bool = False,
         sample_ratio: float = 1.0,
+        item_text_embeddings: Optional[torch.Tensor] = None,
     ) -> None:
         """
         Args:
@@ -53,6 +54,8 @@ class DatasetV2(torch.utils.data.Dataset):
         self._shift_id_by: int = shift_id_by
         self._chronological: bool = chronological
         self._sample_ratio: float = sample_ratio
+
+        self._item_text_embeddings = item_text_embeddings
 
     def __len__(self) -> int:
         return len(self.ratings_frame)
@@ -170,6 +173,17 @@ class DatasetV2(torch.utils.data.Dataset):
             max_seq_len,
             self._chronological,
         )
+
+        # Retrieve text embeddings if available
+        if self._item_text_embeddings is not None and isinstance(self._item_text_embeddings, torch.Tensor):
+            historical_text_embeds = self._item_text_embeddings[torch.tensor(historical_ids)]
+            target_text_embeds = self._item_text_embeddings[torch.tensor([target_ids])]
+        # Fallback to zero embeddings if text embeddings are missing
+        else:
+            embed_dim = self._item_text_embeddings.shape[-1] if self._item_text_embeddings is not None else 0
+            historical_text_embeds = torch.zeros((max_seq_len, embed_dim), dtype=torch.float32)
+            target_text_embeds = torch.zeros((1, embed_dim), dtype=torch.float32)
+
         # moved to features.py
         # if self._chronological:
         #     historical_ids.append(0)
@@ -187,6 +201,8 @@ class DatasetV2(torch.utils.data.Dataset):
             "target_ids": target_ids,
             "target_ratings": target_ratings,
             "target_timestamps": target_timestamps,
+            "historical_text_embeddings": historical_text_embeds,
+            "target_text_embeddings": target_text_embeds,
         }
         return ret
 

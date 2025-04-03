@@ -41,10 +41,12 @@ from generative_recommenders.research.modeling.sequential.autoregressive_losses 
     BCELoss,
     InBatchNegativesSampler,
     LocalNegativesSampler,
+    LocalTextNegativesSampler,
 )
 from generative_recommenders.research.modeling.sequential.embedding_modules import (
     EmbeddingModule,
     LocalEmbeddingModule,
+    ItemEmbeddingWithText,
 )
 from generative_recommenders.research.modeling.sequential.encoder_utils import (
     get_sequential_encoder,
@@ -54,6 +56,7 @@ from generative_recommenders.research.modeling.sequential.features import (
 )
 from generative_recommenders.research.modeling.sequential.input_features_preprocessors import (
     LearnablePositionalEmbeddingInputFeaturesPreprocessor,
+    LearnablePositionalEmbeddingWithTextPreprocessor,
 )
 from generative_recommenders.research.modeling.sequential.losses.sampled_softmax import (
     SampledSoftmaxLoss,
@@ -100,9 +103,8 @@ def train_fn(
     rank: int,
     world_size: int,
     master_port: int,
-    dataset_name: str = "ml-20m",
+    dataset_name: str = "amzn23-game",
     max_sequence_length: int = 200,
-    positional_sampling_ratio: float = 1.0,
     local_batch_size: int = 128,
     eval_batch_size: int = 128,
     eval_user_max_batch_size: Optional[int] = None,
@@ -132,6 +134,8 @@ def train_fn(
     gr_output_length: int = 10,
     l2_norm_eps: float = 1e-6,
     enable_tf32: bool = False,
+    feat_prep: str = "LearnablePositionalEmbeddingInputFeaturesPreprocessor",
+    text_embedding_model: str = None,
     random_seed: int = 42,
 ) -> None:
     # to enable more deterministic results.
@@ -145,9 +149,9 @@ def train_fn(
 
     dataset = get_reco_dataset(
         dataset_name=dataset_name,
+        text_embedding_model=text_embedding_model,
         max_sequence_length=max_sequence_length,
         chronological=True,
-        positional_sampling_ratio=positional_sampling_ratio,
     )
 
     train_data_sampler, train_data_loader = create_data_loader(
@@ -173,6 +177,14 @@ def train_fn(
             num_items=dataset.max_item_id,
             item_embedding_dim=item_embedding_dim,
         )
+    elif embedding_module_type == "local_and_text":
+        assert dataset.text_embedding_dictmat is not None, "Text embeddings are missing!"
+        embedding_module: EmbeddingModule = ItemEmbeddingWithText(
+            num_items=dataset.max_item_id,
+            item_embedding_dim=item_embedding_dim,
+            text_embedding_dim=dataset.text_embedding_dictmat.shape[1],
+            text_embeddings=dataset.text_embedding_dictmat.to("cuda"),
+        )
     else:
         raise ValueError(f"Unknown embedding_module_type {embedding_module_type}")
     model_debug_str += f"-{embedding_module.debug_str()}"
@@ -197,11 +209,19 @@ def train_fn(
             eps=1e-6,
         )
     )
-    input_preproc_module = LearnablePositionalEmbeddingInputFeaturesPreprocessor(
-        max_sequence_len=dataset.max_sequence_length + gr_output_length + 1,
-        embedding_dim=item_embedding_dim,
-        dropout_rate=dropout_rate,
-    )
+
+    if feat_prep == "LearnablePositionalEmbeddingInputFeaturesPreprocessor":
+        input_preproc_module = LearnablePositionalEmbeddingInputFeaturesPreprocessor(
+            max_sequence_len=dataset.max_sequence_length + gr_output_length + 1,
+            embedding_dim=item_embedding_dim,
+            dropout_rate=dropout_rate,
+        )
+    elif feat_prep == "LearnablePositionalEmbeddingWithTextPreprocessor":
+        input_preproc_module = LearnablePositionalEmbeddingWithTextPreprocessor(
+            max_sequence_len=dataset.max_sequence_length + gr_output_length + 1,
+            embedding_dim=item_embedding_dim,
+            dropout_rate=dropout_rate,
+        )
 
     model = get_sequential_encoder(
         module_type=main_module,
@@ -255,6 +275,16 @@ def train_fn(
             l2_norm=item_l2_norm,
             l2_norm_eps=l2_norm_eps,
         )
+    elif sampling_strategy == "local_with_text":
+        negatives_sampler = LocalTextNegativesSampler(
+            num_items=dataset.max_item_id,
+            item_emb=model._embedding_module._item_emb,
+            text_emb=model._embedding_module._text_embeddings, 
+            text_projection=model._embedding_module._text_projection,
+            all_item_ids=dataset.all_item_ids,
+            l2_norm=item_l2_norm,
+            l2_norm_eps=l2_norm_eps, 
+        )
     else:
         raise ValueError(f"Unrecognized sampling strategy {sampling_strategy}.")
     sampling_debug_str = negatives_sampler.debug_str()
@@ -280,13 +310,11 @@ def train_fn(
     model_subfolder = f"{dataset_name}-l{max_sequence_length}"
     model_desc = (
         f"{model_subfolder}"
-        + f"/{model_debug_str}_{interaction_module_debug_str}_{sampling_debug_str}_{loss_debug_str}"
+        + f"/{model_debug_str}_{text_embedding_model}_{interaction_module_debug_str}_{sampling_debug_str}_{loss_debug_str}"
         + f"{f'-ddp{world_size}' if world_size > 1 else ''}-b{local_batch_size}-lr{learning_rate}-wu{num_warmup_steps}-wd{weight_decay}{'' if enable_tf32 else '-notf32'}-{date_str}"
     )
     if full_eval_every_n > 1:
         model_desc += f"-fe{full_eval_every_n}"
-    if positional_sampling_ratio is not None and positional_sampling_ratio < 1:
-        model_desc += f"-d{positional_sampling_ratio}"
     # creates subfolders.
     os.makedirs(f"./exps/{model_subfolder}", exist_ok=True)
     os.makedirs(f"./ckpts/{model_subfolder}", exist_ok=True)
@@ -370,6 +398,9 @@ def train_fn(
                 past_payloads=seq_features.past_payloads,
             )  # [B, X]
 
+            if not torch.isfinite(seq_embeddings).all():
+                logging.warning("Input contains NaN or Inf values")
+
             supervision_ids = seq_features.past_ids
 
             if sampling_strategy == "in-batch":
@@ -380,10 +411,19 @@ def train_fn(
                     presences=(in_batch_ids != 0),
                     embeddings=model.module.get_item_embeddings(in_batch_ids),
                 )
-            else:
-                # pyre-fixme[16]: `InBatchNegativesSampler` has no attribute
-                #  `_item_emb`.
+            elif sampling_strategy == "local":
                 negatives_sampler._item_emb = model.module._embedding_module._item_emb
+            elif sampling_strategy == "local_with_text":
+                negatives_sampler = LocalTextNegativesSampler(
+                    num_items=dataset.max_item_id,
+                    item_emb=model.module._embedding_module._item_emb,  # Learned embeddings
+                    text_emb=model.module._embedding_module._text_embeddings,  # Textual embeddings
+                    text_projection=model.module._embedding_module._text_projection,  # Projection layer
+                    all_item_ids=dataset.all_item_ids,
+                    l2_norm=item_l2_norm,
+                    l2_norm_eps=l2_norm_eps, 
+                ).to(model.device)
+                
 
             ar_mask = supervision_ids[:, 1:] != 0
             loss, aux_losses = ar_loss(

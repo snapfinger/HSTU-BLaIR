@@ -17,15 +17,15 @@
 """
 Usage: mkdir -p tmp/ && python3 preprocess_public_data.py
 """
-
 from generative_recommenders.research.data.preprocessor import get_common_preprocessors
 
 
 def main() -> None:
-    get_common_preprocessors()["ml-1m"].preprocess_rating()
-    get_common_preprocessors()["ml-20m"].preprocess_rating()
-    # get_common_preprocessors()["ml-1b"].preprocess_rating()
-    get_common_preprocessors()["amzn-books"].preprocess_rating()
+    
+    text_embedding_model = "blair"
+
+    get_common_preprocessors(text_embedding_model=text_embedding_model)["amzn23_office"].preprocess_rating()
+    get_common_preprocessors(text_embedding_model=text_embedding_model)["amzn23_game"].preprocess_rating()
 
 
 if __name__ == "__main__":
