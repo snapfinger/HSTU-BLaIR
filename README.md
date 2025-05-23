@@ -1,14 +1,16 @@
 ### HSTU-BLaIR: Lightweight Contrastive Text Embedding for Generative Recommender
 
+### 🌱 Introduction
+
 Recent advances in recommender systems have underscored the complementary strengths of generative modeling and pretrained language models. We propose **HSTU-BLaIR**, a hybrid framework that augments the Hierarchical Sequential Transduction Unit (HSTU)-based generative recommender with BLaIR, a lightweight contrastive text embedding model. This integration enriches item representations with semantic signals from textual metadata while preserving HSTU’s powerful sequence modeling capabilities.
 
-We evaluate HSTU-BLaIR on two e-commerce datasets: three subsets from the Amazon Reviews 2023 dataset and the Steam dataset. We compare its performance against both the original HSTU-based recommender and a variant augmented with embeddings from OpenAI’s state-of-the-art \texttt{text-embedding-3-large} model. Despite the latter being trained on a substantially larger corpus with significantly more parameters, our lightweight BLaIR-enhanced approach—pretrained on domain-specific data—achieves better performance in nearly all cases. Specifically, HSTU-BLaIR outperforms the OpenAI embedding-based variant on all but one metric, where it is marginally lower, and matches it on another. These findings highlight the effectiveness of contrastive text embeddings in compute-efficient recommendation settings.
+We evaluate HSTU-BLaIR on two e-commerce datasets: three subsets from the Amazon Reviews 2023 dataset and the Steam dataset. We compare its performance against both the original HSTU-based recommender and a variant augmented with embeddings from OpenAI’s state-of-the-art `text-embedding-3-large` model. Despite the latter being trained on a substantially larger corpus with significantly more parameters, our lightweight BLaIR-enhanced approach—pretrained on domain-specific data—achieves better performance in nearly all cases. Specifically, HSTU-BLaIR outperforms the OpenAI embedding-based variant on all but one metric, where it is marginally lower, and matches it on another. These findings highlight the effectiveness of contrastive text embeddings in compute-efficient recommendation settings.
 
 📄 The full technical report can be found [here](https://arxiv.org/pdf/2504.10545).
 
 ---
 
-## 🚀 Getting Started
+### 🚀 Getting Started
 
 Install the required Python packages with ```pip3 install -r requirements.txt```.
 
@@ -16,11 +18,11 @@ Install the required Python packages with ```pip3 install -r requirements.txt```
 
 ---
 
-## 🧪 Experiments
+### 🧪 Experiments
 
 To reproduce the experiments from our [technical report](https://arxiv.org/pdf/2504.10545), follow these steps:
 
-### 1. Download and preprocess the data
+#### 1. Download and preprocess the data
 
 ```bash
 mkdir -p tmp/ && python3 preprocess_public_data.py
@@ -41,7 +43,7 @@ text_embedding_model = "openai"
 Make sure you have correctly set up your OpenAI API credentials if you choose this option.
 
 
-### 2. Run the model
+#### 2. Run the model
 
 ```bash
 CUDA_VISIBLE_DEVICES=0 python3 main.py --gin_config_file=configs/amzn23_game/hstu-sampled-softmax-n512-blair.gin --master_port=12345
@@ -51,7 +53,7 @@ You can find other configuration files in the configs/ directory for different s
 
 ---
 
-## 📊 Results
+### 📊 Results
 **Evaluation metrics on Video Games, Office Products, and Musical Instruments of Amazon Reviews 2023 dataset and Steam dataset**  
 
 With the provided `.gin` files, you should be able to reproduce the following evaluation results within a small margin of variability. Minor differences may arise due to inherent non-determinism in model initialization, data loading, and/or hardware-level operations.
@@ -60,7 +62,7 @@ Each cell shows absolute values (top row) and percentage improvements over HSTU 
 
 *HSTU-OpenAI (TE3L)* denotes the HSTU model augmented with text embeddings generated via OpenAI’s `text-embedding-3-large` API. 
 
-### Video Games
+#### Video Games
 
 | Model               | HR@10     | HR@50     | HR@200    | NDCG@10   | NDCG@200 | MRR      |
 |---------------------|-----------|-----------|-----------|-----------|----------|----------|
@@ -73,7 +75,7 @@ Each cell shows absolute values (top row) and percentage improvements over HSTU 
 | **HSTU-BLaIR**      | **.1353** | **.2852** | **.4684** | **.0760** | **.1361**| **.0674**|
 |                     | (+2.9% / +31.6%) | (+3.1% / +23.1%) | (+2.6% / +18.9%) | (+2.6% / +32.6%) | (+2.6% / +24.1%) | (+2.4% / +30.1%) |
 
-### Office Products
+#### Office Products
 
 | Model               | HR@10     | HR@50     | HR@200    | NDCG@10   | NDCG@200 | MRR      |
 |---------------------|-----------|-----------|-----------|-----------|----------|----------|
@@ -86,7 +88,7 @@ Each cell shows absolute values (top row) and percentage improvements over HSTU 
 | **HSTU-BLaIR**      | **.0484** | **.1068** | **.1946** | **.0271** | **.0529**| **.0248**|
 |                     | (+22.5% / +72.2%) | (+21.4% / +59.9%) | (+18.0% / +46.2%) | (+21.5% / +77.1%) | (+19.4% / +57.9%) | (+19.8% / +73.4%) |
 
-### Musical Instruments
+#### Musical Instruments
 
 | Model               | HR@10     | HR@50     | HR@200    | NDCG@10   | NDCG@200 | MRR      |
 |---------------------|-----------|-----------|-----------|-----------|----------|----------|
@@ -99,7 +101,7 @@ Each cell shows absolute values (top row) and percentage improvements over HSTU 
 | **HSTU-BLaIR**      | **.0733** | **.1681** | **.3066** | **.0406** | **.0818**| **.0371**|
 |                     | (+4.7% / +14.0%) | (+5.1% / +13.0%) | (+5.4% / +10.1%) | (+3.6% / +14.0%) | (+4.5% / +11.9%) | (+3.3% / +13.8%) |
 
-### Steam
+#### Steam
 
 | Model               | HR@10     | HR@50     | HR@200    | NDCG@10   | NDCG@200 | MRR      |
 |---------------------|-----------|-----------|-----------|-----------|----------|----------|
@@ -112,7 +114,7 @@ Each cell shows absolute values (top row) and percentage improvements over HSTU 
 | **HSTU-BLaIR**      | **.1100** | **.2668** | **.4812** | **.0581** | **.1241**| .0523    |
 |                     | (+6.0% / +24.9%) | (+3.6% / +17.2%) | (+2.3% / +11.6%) | (+6.8% / +25.8%) | (+3.8% / +16.2%) | (+6.3% / +22.8%) |
 
-## 📚 Citation
+### 📚 Citation
 
 If you use HSTU-BLaIR in your work, please cite:
 
@@ -126,9 +128,9 @@ If you use HSTU-BLaIR in your work, please cite:
 }
 ```
 
-## 📬 Contact
+### 📬 Contact
 
 If you encounter any problems or have questions, feel free to [open an issue](https://github.com/snapfinger/HSTU-BLaIR/issues) or email yijunl [at] usc [dot] edu.
 
-## License
+### License
 This codebase is Apache 2.0 licensed, as found in the [LICENSE](LICENSE) file.
