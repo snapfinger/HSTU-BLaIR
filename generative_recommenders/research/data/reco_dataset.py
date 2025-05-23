@@ -44,7 +44,7 @@ def get_reco_dataset(
     max_sequence_length: int,
     chronological: bool,
 ) -> RecoDataset:
-    if dataset_name in ["amzn23_office", "amzn23_game"]:
+    if dataset_name in ["amzn23_office", "amzn23_game", "amzn23_music", "steam"]:
 
         dp = get_common_preprocessors(text_embedding_model)[dataset_name]
         train_dataset = DatasetV2(

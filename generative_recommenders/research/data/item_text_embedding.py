@@ -8,7 +8,7 @@ from transformers import AutoTokenizer, AutoModel
 
 def generate_text_embeddings(texts, model_name, device="cuda"):
     """
-    Generate embeddings for input texts using either 'blair', 'llama', or 'chatgpt'
+    Generate embeddings for input texts using either 'blair' or 'openai'
     """
     if model_name.lower() == "blair":
         model_id = 'hyp1231/blair-roberta-base'
