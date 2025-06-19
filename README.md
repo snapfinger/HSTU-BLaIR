@@ -1,4 +1,5 @@
 ### HSTU-BLaIR: Lightweight Contrastive Text Embedding for Generative Recommender
+🏷️ *Accepted at the Workshop on Large Language Models for E-Commerce, KDD 2025*
 
 ### 🌱 Introduction
 
