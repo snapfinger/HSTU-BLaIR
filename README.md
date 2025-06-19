@@ -1,4 +1,5 @@
 ### HSTU-BLaIR: Lightweight Contrastive Text Embedding for Generative Recommender
+🏷️ *Accepted at the Workshop on Large Language Models for E-Commerce, KDD 2025*
 
 ### 🌱 Introduction
 
@@ -6,7 +7,7 @@ Recent advances in recommender systems have underscored the complementary streng
 
 We evaluate HSTU-BLaIR on two e-commerce datasets: three subsets from the Amazon Reviews 2023 dataset and the Steam dataset. We compare its performance against both the original HSTU-based recommender and a variant augmented with embeddings from OpenAI’s state-of-the-art `text-embedding-3-large` model. Despite the latter being trained on a substantially larger corpus with significantly more parameters, our lightweight BLaIR-enhanced approach—pretrained on domain-specific data—achieves better performance in nearly all cases. Specifically, HSTU-BLaIR outperforms the OpenAI embedding-based variant on all but one metric, where it is marginally lower, and matches it on another. These findings highlight the effectiveness of contrastive text embeddings in compute-efficient recommendation settings.
 
-📄 The full technical report can be found [here](https://arxiv.org/pdf/2504.10545).
+📄 The full technical report can be found [here](https://kdd2025llm4ecommerce.github.io/assets/accepted/13_HSTU_BLaIR_Lightweight_Cont.pdf).
 
 ---
 
